@@ -482,6 +482,7 @@ function SetupLog() {
             var day = new Date().getDate(d) - 1;
             if (day < 10) { day = "0" + day; }
             var hour = new Date().getHours(d) + offset;
+            if (hour < 0) { hour = 24 + hour; }
             if (hour < 10) { hour = "0" + hour; }
             var yesterdayKey = year + "" + month + "" + day + "" + hour;
             var keys = Object.keys(log[$(tradeSelectRarityChart).val()]).sort();
