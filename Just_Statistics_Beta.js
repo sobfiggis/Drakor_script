@@ -67,6 +67,7 @@ $(document).ready(function () {
                         var day = new Date().getDate(d);
                         if (day < 10) { day = "0" + day; }
                         var hour = new Date().getHours(d) + offset;
+                        if (hour < 0) { hour = 24 + hour; day--; }
                         if (hour < 10) { hour = "0" + hour; }
                         var logDate = year + "/" + month + "/" + day + ": ";
                         var key = year + "" + month + "" + day + "" + hour; //Generate a key for the dictionary for stuff per hour mapping
@@ -314,28 +315,28 @@ function ConvertIntoSmallerTimeFormat(timeInMs) {
     var seconds = timeInMs / 1000;
     var interval = Math.floor(seconds / 31536000);
     if (interval > 1) {
-        output += interval + " years";
-        seconds -= seconds * interval * 31536000;
+        output += interval + " years ";
+        seconds -= interval * 31536000;
     }
     interval = Math.floor(seconds / 2592000);
     if (interval > 1) {
-        output += interval + " months";
-        seconds -= seconds * interval * 2592000;
+        output += interval + " months ";
+        seconds -= interval * 2592000;
     }
     interval = Math.floor(seconds / 86400);
     if (interval > 1) {
-        output += interval + " days";
-        seconds -= seconds * interval * 86400;
+        output += interval + " days ";
+        seconds -= interval * 86400;
     }
     interval = Math.floor(seconds / 3600);
     if (interval > 1) {
-        output += interval + " hours";
-        seconds -= seconds * interval * 3600;
+        output += interval + " hours ";
+        seconds -= interval * 3600;
     }
     interval = Math.floor(seconds / 60);
     if (interval > 1) {
-        output += interval + " minutes";
-        seconds -= seconds * interval * 60;
+        output += interval + " minutes ";
+        seconds -= interval * 60;
     }
     output += Math.floor(seconds) + " seconds";
     return output;
@@ -482,7 +483,7 @@ function SetupLog() {
             var day = new Date().getDate(d) - 1;
             if (day < 10) { day = "0" + day; }
             var hour = new Date().getHours(d) + offset;
-            if (hour < 0) { hour = 24 + hour; }
+            if (hour < 0) { hour = 24 + hour; day--; }
             if (hour < 10) { hour = "0" + hour; }
             var yesterdayKey = year + "" + month + "" + day + "" + hour;
             var keys = Object.keys(log[$(tradeSelectRarityChart).val()]).sort();
