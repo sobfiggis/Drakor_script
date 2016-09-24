@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         Just statistics v1.71 Beta
-// @version      1.71B
+// @name         Just statistics v1.8
+// @version      1.8
 // @description  Collection/Creation log (Tracks drops/creates, multidrops/-creates, displays the different rarities that dropped and more...)
 // @author       Dominik "Bl00D4NGEL" Peters
 // @match        http://*.drakor.com*
@@ -8,7 +8,7 @@
 // ==/UserScript==
 
 $(document).ready(function () {
-    var version = "v1.71 BETA";
+    var version = "v1.8";
     console.log("You're currently using version " + version);
     //Variable declaration; getting the data out of local storage
     var log;
@@ -221,10 +221,19 @@ function ChangeTitle(activity, buffState) {
     $("title").text((foodBuffInfo + activity));
 }
 //Chart/Graph building
-function drawPieChart(json_string, title_text, div_name, pies) {
+function DrawChart(json_string, title_text, chart_type) {
     var chart1 = new cfx.Chart();
-    chart1.setGallery(cfx.Gallery.Pie);
-    chart1.create(div_name);
+    if (chart_type.match(/pie/i)) {
+        chart1.setGallery(cfx.Gallery.Pie);
+    }
+    else if (chart_type.match(/bar/i)) {
+        chart1.setGallery(cfx.Gallery.Bar);
+    }
+    else if (chart_type.match(/(lines|graph)/i)) {
+        chart1.setGallery(cfx.Gallery.Lines);
+    }
+    $("#graph_div").html("");
+    chart1.create('graph_div');
     chart1.setDataSource(json_string);
     var titles = chart1.getTitles();
     var title = new cfx.TitleDockable();
@@ -375,7 +384,7 @@ function SetupLog() {
     var graph_div = $(document.createElement("div")).attr({ id: "graph_div" }).css({ "width": "auto", "height": "400px", "text-align": "left", "display": "inherit" }).appendTo(graphDiv);
     if (!log.Misc.Https) { //It should only add the Graph stuff if it can even be loaded which can not be done if the connection is https.
         tradeSelectRarityChart = $(document.createElement("select")).attr({ id: 'tradeSelectRarityChart' }).insertBefore(graph_div);
-        var rarityPercentButton = $(document.createElement("button")).text("Rarity %(Pie)").on("click", function () {
+        var rarityPercentButton = $(document.createElement("button")).text("Rarities").on("click", function () {
             var json_array = [];
             log = JSON.parse(localStorage.getItem("localLog"));
             var tradeskill = $(tradeSelectRarityChart).val();
@@ -389,7 +398,65 @@ function SetupLog() {
 
                 console.log(json_array);
                 $("#graph_div").html("");
-                drawPieChart(json_array, "Rarities", "graph_div");
+                DrawChart(json_array, "Rarities", "pie");
+            }
+            else {
+                $("#graph_div").html("You didn't select a tradeskill, shame on you!");
+            }
+        }).insertBefore(graph_div);
+        var attemptsAndAmountButton = $(document.createElement("button")).html("Attempts and Amounts<br/>of last 24 hours").on("click", function () {
+            if ($(tradeSelectRarityChart).val()) {
+                log = JSON.parse(localStorage.getItem("localLog"));
+                var jsonAmountAndAttempts = [];
+                var yesterdayKey = CreateYesterdayDateKey();
+                var keys = Object.keys(log[$(tradeSelectRarityChart).val()]).sort();
+                //remove everything that is not a number
+                //I don't know how safe it would be to try to cast everything as a number and then check for NaN
+                //So I went for regular expressions to check it
+                for (var i = keys.length - 1; i >= 0; i--) {
+                    if (!keys[i].match(/^\d+$/)) {
+                        keys.splice(i, 1);
+                    }
+                }
+                for (var j = 0; j < keys.length; j++) {
+                    if (Number(yesterdayKey) < Number(keys[j])) {
+                        var dummy = {};
+                        dummy.Date = keys[j].slice(-2);
+                        dummy.Amount = log[$(tradeSelectRarityChart).val()][keys[j]].Amount;
+                        dummy.Attempts = log[$(tradeSelectRarityChart).val()][keys[j]].Attempts;
+                        jsonAmountAndAttempts.push(dummy);
+                    }
+                }
+                DrawChart(jsonAmountAndAttempts, "Attempts and Amounts of last 24 hours", "lines");
+            }
+            else {
+                $("#graph_div").html("You didn't select a tradeskill, shame on you!");
+            }
+            // Here you would call the graph-drawer and fill the data it (Would create three different diagrams most likely)
+        }).insertBefore(graph_div);
+        var experienceButton = $(document.createElement("button")).html("Experience of last 24 hours").on("click", function () {
+            if ($(tradeSelectRarityChart).val()) {
+                log = JSON.parse(localStorage.getItem("localLog"));
+                var jsonExperience = [];
+                var yesterdayKey = CreateYesterdayDateKey();
+                var keys = Object.keys(log[$(tradeSelectRarityChart).val()]).sort();
+                //remove everything that is not a number
+                //I don't know how safe it would be to try to cast everything as a number and then check for NaN
+                //So I went for regular expressions to check it
+                for (var i = keys.length - 1; i >= 0; i--) {
+                    if (!keys[i].match(/^\d+$/)) {
+                        keys.splice(i, 1);
+                    }
+                }
+                for (var j = 0; j < keys.length; j++) {
+                    if (Number(yesterdayKey) < Number(keys[j])) {
+                        var dummy = {};
+                        dummy.Date = keys[j].slice(-2);
+                        dummy.Experience = log[$(tradeSelectRarityChart).val()][keys[j]].Experience;
+                        jsonExperience.push(dummy);
+                    }
+                }
+                DrawChart(jsonExperience, "Experience of last 24 hours", "lines");
             }
             else {
                 $("#graph_div").html("You didn't select a tradeskill, shame on you!");
@@ -469,50 +536,6 @@ function SetupLog() {
             $(tradeLog).html(text);
         }
     }).insertBefore(tradeLog);
-    var testButton = $(document.createElement("button")).attr({ id: "testButton" }).html("Display data of last 24 hours").on("click", function () {
-        if ($(tradeSelectRarityChart).val()) {
-            log = JSON.parse(localStorage.getItem("localLog"));
-            var today = new Date();
-            var localoffset = -(today.getTimezoneOffset() / 60);
-            var destoffset = -3;
-            var offset = destoffset - localoffset;
-            var d = new Date().getTime() + offset * 3600 * 1000;
-            var year = new Date().getFullYear(d);
-            var month = new Date().getMonth(d) + 1;
-            if (month < 10) { month = "0" + month; }
-            var day = new Date().getDate(d) - 1;
-            if (day < 10) { day = "0" + day; }
-            var hour = new Date().getHours(d) + offset;
-            if (hour < 0) { hour = 24 + hour; day--; }
-            if (hour < 10) { hour = "0" + hour; }
-            var yesterdayKey = year + "" + month + "" + day + "" + hour;
-            var keys = Object.keys(log[$(tradeSelectRarityChart).val()]).sort();
-            //remove everything that is not a number
-            //I don't know how safe it would be to try to cast everything as a number and then check for NaN
-            //So I went for regular expressions to check it
-            for (var i = keys.length - 1; i >= 0; i--) {
-                if (!keys[i].match(/^\d+$/)) {
-                    keys.splice(i, 1);
-                }
-            }
-            for (var j = 0; j < keys.length; j++) {
-                if (Number(yesterdayKey) < Number(keys[j])) {
-                    console.log(yesterdayKey + " seems to be earlier than " + keys[j]);
-                    for (var key in log[$(tradeSelectRarityChart).val()][keys[j]]) {
-                        //So instead of this console logging you would basically build up three different objects so you can later on call graph-drawing functions
-                        console.log("Key: " + key + "\nValue: " + log[$(tradeSelectRarityChart).val()][keys[j]][key]);
-                    }
-                }
-                else {
-                    console.log(yesterdayKey + " seems to be later than " + keys[j]);
-                }
-            }
-        }
-        else {
-            $("#graph_div").html("You didn't select a tradeskill, shame on you!");
-        }
-        // Here you would call the graph-drawer and fill the data it (Would create three different diagrams most likely)
-    }).insertBefore(graph_div);
     $(document.createElement("option")).attr({ name: "", value: "" }).text("Select a tradeskill").appendTo(tradeSelect);
     $(document.createElement("option")).attr({ name: "", value: "" }).text("Select a tradeskill").appendTo(tradeSelectRarityChart);
     $(document.createElement("option")).attr({ name: "", value: "" }).text("Select a material").appendTo(materialSelect);
@@ -536,11 +559,27 @@ function SetupLog() {
             duration: 500
         },
         width: 850,
-        height: 400
+        height: 550
     });
     $(fragment).appendTo("#gs_topmenu");
 }
 
+function CreateYesterdayDateKey() {
+    var today = new Date();
+    var localoffset = -(today.getTimezoneOffset() / 60);
+    var destoffset = -3;
+    var offset = destoffset - localoffset;
+    var d = new Date().getTime() + offset * 3600 * 1000;
+    var year = new Date().getFullYear(d);
+    var month = new Date().getMonth(d) + 1;
+    if (month < 10) { month = "0" + month; }
+    var day = new Date().getDate(d) - 1;
+    if (day < 10) { day = "0" + day; }
+    var hour = new Date().getHours(d) + offset;
+    if (hour < 0) { hour = 24 + hour; day--; }
+    if (hour < 10) { hour = "0" + hour; }
+    return (year + "" + month + "" + day + "" + hour);
+}
 function ResetStatistics() {
     var localStorageElements = ["materialDivText", "multiDivText", "rarityDivText", "miscDivText"];
     for (var i = 0 ; i < localStorageElements.length; i++) {
@@ -554,72 +593,3 @@ function ResetStatistics() {
     $("#materialSelect").find("option").remove().end().append("<option name='' value=''>Select a material</option>");
     $("#tradeSelect").find("option").remove().end().append("<option name='' value=''>Select a tradeskill</option>");
 }
-/*
-Patch notes 1.42
-10th.June.2016
--	Started doing patch notes, yay!
-- 	Commented variables, moved them to the ResetStatistics function
-- 	Cleaned up the UpdateStatisticDivs function from junk lines
--	Renamed and rearranged variables in "SetupLog" function
-- 	Created fall-back else in the amount,expDropped and totalExp if-clause to report an error to the console
-11th.June.2016
--   Added a dictionary variable "materialDic" that helps build up the displayed log of a specific material
--   Added a history log for specific materials/multis
--   Removed alert from ResetStatistics as it was kind of annoying
--   Removed the Limit function since it was a pointless (and unallowed) feature anyway
--   Reworded some labels on the checkbox and console outputs
--   Renamed script to "Just statistics v1.42" instead of the original name "Collection history"
-Ninja patch:
--   Added everything to it's own div inside the original div (class ="skillresultsheader")
--	Fixed a bug where the select(s) would not reset their data properly
-12th.June.2016
--   Fixed a bug where the multi would display "ou" if you didn't find anything
--   Also fixed the display of this so it does not display the time twice
--   Fixed a bug where if you would execute the jquery command to get this script while you have already collected/created materials it would not execute the script correctly
--   Fixed a bug where the multi-select would not reset/rebuild properly
-
-Patch notes 1.5
-14th.June.2016
--   Re-did the setup of the log requirements so that it now checks for an existing id(logDiv) and not for the text of the last element
-    This will make further implementation easier
--   Started to save the "totalStatistics" variable in the local storage. This is just the beginning of session-continued data collection (Still in it's early steps)
--   Created a help button and added functionality to it (It appends text to the end of the div)
--   Optimized the main Interval to set a "perfect" interval time via function.
--   Created a function(GetRightTiming) to calculate the "perfect" interval time based on the passed between 25% and 50%
--   Moved the node-information into the main-loop as this should have a good interval now
-15th.June.2016
--   Optimized the GetRightTiming function a little more and tried to fix a few more bugs connected to it
--   Added a 5 second interval that loops over, only really executes code if the graphical log isn't built yet
--   Fixed a "typo" in the ouput variable of the Mainloop, "You have collected" => "You have collected/ created"
-17th.June.2016
--   Re-did the whole GetRightTiming function that it now waits until the attempt will end in 2 seconds and then do it's thing
--   Now checking if the refresh vs real time is synced in the MainLoop
--   Added a food buff status-tag to the title header. (NBA = No Buff Active; BA = Buff Active) - Also made this available in v1.42 as this was easy to implement
-18th.June.2016
--   Finalized the data-over-session storage of statistics. This is still experimental so no guarantee that it will work 100%
--   You can now see how long you have been working on a node
--   Added the display of how many total attempts and how many node attempts you've done
--   Added a few lines to the help-file
-
-Patch notes 1.51
-18th.June.2016
--   Added a checkbox to the top to display the rarities below
--   Changed the conditions for the rarity-meter to be displayed and added it to the new checkbox
--   Changed SetTotalStatstics => WriteCheckboxStatus, this will wrrite the value of the checkbox into the local storage
--   Adjusted the text of how long you've been working on a node as it was only "covering" collection and not crafting
--   Adjusted the total-attempt display as it was only "covering" collection but not crafting
-
-Patch notes 1.52
-19th.June.2016
--   Fixed a bug where the last attempt of a crafting skill would cause a some weird stuff e.g. nothingrarity +1 and so on
--   Adjusted the ResetStatistics function to be up to latest standards
--   Added a checkbox for the "nerdy" stuff (Basically a log of what gets written/ loaded into/out of local storage)
--   Removed the rarity-meter (RIP somewhere around early June - 19th.June.2016)
--   Added a small % to the "You'Ve collected something x amount of times" thing
-Patch notes 1.6
-20th.June.2016-23th.June.2016
--   Created a new function to create the output which takes arguments like exp and so on
--   Moved most of the mainLoop into the new created function, the mainloop function now mainly concats data to use it in the AddData function
--   Fixed a bug where a double exp occuring would cause the log to mess up and display weird multis
-
-*/
